@@ -1,0 +1,18 @@
+{
+  "name": "network-monitor",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "bull": "^4.16.5",
+    "ioredis": "^5.6.0"
+  },
+  "devDependencies": {
+    "@types/bull": "^3.15.9",
+    "@types/node": "^22.13.13",
+    "typescript": "^5.8.2"
+  }
+}

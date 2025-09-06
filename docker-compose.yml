@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:alpine
+    network_mode: host
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - ./redis/data:/data
+  app:
+    build: app
+    network_mode: host
+    restart: always
+    depends_on:
+      - redis
+    volumes:
+      - ./app/src:/app/src
+    environment:
+      DOMAIN_NAME: your.domain.tld
+      TAILSCALE_IP: 100.64.0.1
