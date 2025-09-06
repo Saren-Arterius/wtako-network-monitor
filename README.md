@@ -2,40 +2,40 @@
 
 A high-frequency network monitoring extension for the `wtako-monitor` project, providing deep insights into network health, performance, and security.
 
-This service runs independently and exposes a detailed metrics API, designed to be consumed by the `wtako-monitor` dashboard. It uses Node.js, TypeScript, Redis, and BullMQ to perform continuous, asynchronous network analysis without blocking.
+This service runs independently and exposes a detailed metrics API designed to be consumed by the `wtako-monitor` dashboard. It uses Node.js, TypeScript, Redis, and BullMQ to perform continuous, asynchronous network analysis.
 
 ## Features
 
-- **High-Frequency Ping Monitoring**: Tracks latency and packet loss every 5 seconds to assess real-time network stability.
-- **Historical Performance Analysis**: Calculates and provides moving averages for latency and packet loss over 1 minute, 5 minutes, 1 hour, and 24 hours.
-- **Outage Detection**: Automatically identifies network outages, logging their start and end times.
-- **Minute-by-Minute Timeline**: Generates a 60-minute historical graph of network health, perfect for visualizing recent stability on the `wtako-monitor` frontend.
-- **Port Scanning**: Periodically uses `nmap` to scan for open ports on both a public domain and a private Tailscale IP.
-- **Public IP Tracking**: Monitors and logs changes to your public IP address.
-- **Resilient Architecture**: Utilizes a producer/worker pattern with Redis Streams and BullMQ to ensure data collection and processing are decoupled and robust.
-- **Simple Integration**: Exposes a single `GET /metrics` JSON endpoint for easy consumption by `wtako-monitor`.
+-   **High-Frequency Ping Monitoring**: Tracks latency and packet loss every 5 seconds to assess real-time network stability.
+-   **Historical Performance Analysis**: Calculates and provides moving averages for latency and packet loss over 1-minute, 5-minute, 1-hour, and 24-hour windows.
+-   **Outage Detection**: Automatically identifies network outages, logging their start and end times.
+-   **Minute-by-Minute Timeline**: Generates a 60-minute historical timeline of network health, perfect for visualizing recent stability on the `wtako-monitor` frontend.
+-   **Port Scanning**: Periodically uses `nmap` to scan for open ports on both a public domain and a private Tailscale IP.
+-   **Public IP Tracking**: Monitors and logs changes to your public IP address.
+-   **Resilient Architecture**: Utilizes a producer/worker pattern with Redis Streams and BullMQ to ensure data collection and processing are decoupled and fault-tolerant.
+-   **Simple Integration**: Exposes a single `GET /metrics` JSON endpoint for easy consumption by `wtako-monitor`.
 
 ## Architecture
 
-The system is composed of a few key components orchestrated by Docker Compose:
+The system is composed of key components orchestrated by Docker Compose:
 
-1.  **Redis**: Acts as the data backbone, storing historical data in streams and managing the job queue.
-2.  **Producer (`index.ts`)**: A lightweight process responsible for running checks at set intervals (ping, DNS, port scan). It writes raw data into Redis Streams and adds a `generateMetrics` job to a BullMQ queue.
-3.  **Worker (`worker.ts`)**: A BullMQ consumer that processes `generateMetrics` jobs. It reads the raw data from Redis, performs all heavy calculations (historical averages, outage detection), and caches the complete JSON report in a Redis key.
-4.  **HTTP Server (`index.ts`)**: A simple, non-blocking server that serves the pre-calculated JSON report from the Redis cache via the `/metrics` endpoint. This ensures that API requests are always fast and don't trigger new scans.
+1.  **Redis**: Serves as the data backbone, storing historical data in streams and managing the BullMQ job queue.
+2.  **Producer (`index.ts`)**: A lightweight process that runs checks at set intervals (ping, DNS, port scan). It writes raw data into Redis Streams and adds a `generateMetrics` job to a BullMQ queue.
+3.  **Worker (`worker.ts`)**: A BullMQ consumer that processes `generateMetrics` jobs. It reads raw data from Redis, performs all calculations (e.g., historical averages, outage detection), and caches the complete JSON report in a Redis key.
+4.  **HTTP Server (`index.ts`)**: A simple, non-blocking server that serves the pre-calculated JSON report from the Redis cache via the `/metrics` endpoint. This ensures API requests are always fast and do not trigger new scans.
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- A running instance of [wtako-monitor](https://github.com/your-username/wtako-monitor) to consume and display the metrics.
-- The `app` Docker image requires `nmap` to be installed.
+-   Docker and Docker Compose
+-   A running instance of [wtako-monitor](https://github.com/your-username/wtako-monitor) to consume and display the metrics.
 
+Note: The included `Dockerfile` for the `app` service handles the installation of `nmap`.
 ## Installation and Configuration
 
 1.  Clone the repository.
 
 2.  **Configure Environment Variables** in `docker-compose.yml`:
-    -   `DOMAIN_NAME`: Your public domain name (e.g., `your.domain.tld`) that will be used for public IP resolution and port scanning.
+    -   `DOMAIN_NAME`: Your public domain name (e.g., `your.domain.tld`) for public IP resolution and port scanning.
     -   `TAILSCALE_IP`: A private IP address (e.g., a Tailscale IP) for internal port scanning.
 
 3.  **Build and Start the Service**:
@@ -48,12 +48,12 @@ The system is composed of a few key components orchestrated by Docker Compose:
 
 Once running, `wtako-network-monitor` exposes its data at `http://localhost:8080/metrics`.
 
-To integrate with `wtako-monitor`, you need to configure its backend (`wtako-monitor/src/systemMonitor.ts`) to fetch data from this endpoint. The `wtako-monitor` server should then emit these metrics through its WebSocket connection to the frontend.
+To integrate with `wtako-monitor`, configure its backend (`wtako-monitor/src/systemMonitor.ts`) to fetch data from this endpoint. The `wtako-monitor` server should then emit these metrics through its WebSocket connection to the frontend.
 
 **Example `systemMonitor.ts` modification in `wtako-monitor`:**
 
 ```typescript
-// In your wtako-monitor/src/systemMonitor.ts or similar
+// In your wtako-monitor/src/systemMonitor.ts or a similar file
 
 // Periodically fetch network metrics
 async updateNetworkMetrics() {
@@ -93,29 +93,6 @@ ln -s /tmp/ping /path/to/wtako-monitor/public/latest-ping
 ```
 
 The ping result can then be fetched from `http://<monitor-host>/latest-ping`.
-
-**Example `systemMonitor.ts` modification in `wtako-monitor`:**
-
-```typescript
-// In your wtako-monitor/src/systemMonitor.ts or similar
-
-// Periodically fetch network metrics
-async updateNetworkMetrics() {
-    try {
-        const response = await fetch('http://localhost:8080/metrics');
-        if (response.ok) {
-            this.networkMetrics = await response.json();
-        }
-    } catch (error) {
-        console.error('Failed to fetch network metrics:', error);
-    }
-}
-
-// Ensure updateNetworkMetrics() is called on an interval,
-// and the result is stored and sent to the frontend.
-```
-
-The data structure from the `/metrics` endpoint is designed to be directly used by the `networkMetrics` state object in the `wtako-monitor` frontend.
 
 ### API Endpoint
 
@@ -164,4 +141,5 @@ The data structure from the `/metrics` endpoint is designed to be directly used 
     ```
 
 ## License
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0)
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
