@@ -2,7 +2,7 @@
 
 A high-frequency network monitoring extension for the `wtako-monitor` project, providing deep insights into network health, performance, and security.
 
-This service runs independently and exposes a detailed metrics API designed to be consumed by the `wtako-monitor` dashboard. It uses Node.js, TypeScript, Redis, and BullMQ to perform continuous, asynchronous network analysis.
+This service is meant to be run on Raspberry Pi or any VPS, and it runs independently and exposes a detailed metrics API designed to be consumed by the `wtako-monitor` dashboard. It uses Node.js, TypeScript, Redis, and BullMQ to perform continuous, asynchronous network analysis.
 
 ## Features
 
