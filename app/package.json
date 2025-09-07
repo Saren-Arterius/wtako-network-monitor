@@ -3,16 +3,21 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "build": "npm run build:native && tsc",
+    "start": "node dist/worker.js & node dist/index.js",
+    "build:native": "node-gyp rebuild"
   },
   "dependencies": {
     "bull": "^4.16.5",
-    "ioredis": "^5.6.0"
+    "ioredis": "^5.6.0",
+    "napi-macros": "^2.2.2",
+    "node-addon-api": "^8.5.0"
   },
   "devDependencies": {
     "@types/bull": "^3.15.9",
     "@types/node": "^22.13.13",
-    "typescript": "^5.8.2"
-  }
+    "typescript": "^5.8.2",
+    "node-gyp": "^11.4.2"
+  },
+  "gypfile": true
 }

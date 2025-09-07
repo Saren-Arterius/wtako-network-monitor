@@ -10,13 +10,14 @@ const TAILSCALE_IP = process.env.TAILSCALE_IP || '100.64.0.1';
 // const CHECK_IP = '1.1.1.1';
 const HTTP_PORT = 8080;
 const REDIS_SETTINGS = {
-  DATA_RETENTION_DAYS: 7,
+  DATA_RETENTION_DAYS: 31,
   HISTORY_MINUTES: 60,
   STREAM_KEYS: {
     RESOLVED_IPS: 'domain:resolved_ips',
     INTERNET_OPEN_PORTS: `network:open_ports:${DOMAIN_NAME}`,
     TAILSCALE_OPEN_PORTS: `network:open_ports:${TAILSCALE_IP}`,
-    PING_STATS: 'network:ping_stats'
+    PING_STATS: 'network:ping_stats',
+    NETWORK_TRAFFIC_STATS: 'network:traffic_stats'
   }
 };
 const redis = new Redis({
@@ -132,6 +133,43 @@ async function checkPing() {
   await metricsQueue.add('generateMetrics', {});
 }
 
+async function checkNetworkTrafficStats() {
+  try {
+    const body = await new Promise<string>((resolve, reject) => {
+      const req = http.get(`http://${TAILSCALE_IP}:3000/network-total`, { timeout: 4000 }, (res: any) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error(`Failed to get network stats, status code: ${res.statusCode}`));
+        }
+        let data = '';
+        res.on('data', (chunk: any) => (data += chunk));
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', (err: any) => reject(new Error(`Failed to get network stats: ${err.message}`)));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Request for network stats timed out'));
+      });
+    });
+
+    const stats = JSON.parse(body);
+    const { networkRxTotal, networkTxTotal, uptime } = stats;
+
+    if (typeof networkRxTotal === 'undefined' || typeof networkTxTotal === 'undefined' || typeof uptime === 'undefined') {
+      throw new Error('Could not parse network stats from response or response was missing fields');
+    }
+
+    console.log(`Network stats - Rx: ${networkRxTotal}, Tx: ${networkTxTotal}, Uptime: ${uptime}`);
+    await addStreamEntry(REDIS_SETTINGS.STREAM_KEYS.NETWORK_TRAFFIC_STATS, {
+      rx: String(networkRxTotal),
+      tx: String(networkTxTotal),
+      uptime: String(uptime)
+    });
+  } catch (err) {
+    console.error('Network stats error:', (err as Error).message);
+  }
+}
+
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   if (req.url !== '/metrics') {
     res.writeHead(404);
@@ -161,10 +199,12 @@ const server = http.createServer(handleRequest);
 server.listen(HTTP_PORT, () => {
   console.log(`HTTP server running on port ${HTTP_PORT}`);
 });
+
 const INTERVAL_TIMINGS = {
   DNS_CHECK: 60 * 60 * 1000,
   DOMAIN_PORT_SCAN: 60 * 60 * 1000,
   IP_PORT_SCAN: 60 * 60 * 1000,
+  NETWORK_TRAFFIC_STATS_CHECK: 30 * 1000,
   PING_CHECK: 5 * 1000
 };
 
@@ -174,5 +214,6 @@ function scheduleAtInterval(fn: () => void, intervalMs: number) {
 }
 scheduleAtInterval(checkPing, INTERVAL_TIMINGS.PING_CHECK);
 scheduleAtInterval(checkDomainResolution, INTERVAL_TIMINGS.DNS_CHECK);
+scheduleAtInterval(checkNetworkTrafficStats, INTERVAL_TIMINGS.NETWORK_TRAFFIC_STATS_CHECK);
 scheduleAtInterval(() => scanPorts(DOMAIN_NAME, REDIS_SETTINGS.STREAM_KEYS.INTERNET_OPEN_PORTS), INTERVAL_TIMINGS.DOMAIN_PORT_SCAN);
 scheduleAtInterval(() => scanPorts(TAILSCALE_IP, REDIS_SETTINGS.STREAM_KEYS.TAILSCALE_OPEN_PORTS), INTERVAL_TIMINGS.IP_PORT_SCAN);
