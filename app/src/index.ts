@@ -5,8 +5,8 @@ import Queue from 'bull';
 import * as dns from 'dns';
 import * as http from 'http';
 
-const DOMAIN_NAME = process.env.DOMAIN_NAME || 'your.domain.tld';
-const TAILSCALE_IP = process.env.TAILSCALE_IP || '100.64.0.1';
+const DOMAIN_NAME = 'chibisuke.wtako.net';
+const TAILSCALE_IP = '100.64.0.1';
 // const CHECK_IP = '1.1.1.1';
 const HTTP_PORT = 8080;
 const REDIS_SETTINGS = {
@@ -76,7 +76,7 @@ async function scanPorts(target: string, streamKey: string) {
   }
 }
 
-const metricsQueue = new Queue('metrics', {
+const metricsQueue = new Queue('metrics1', {
   redis: {
     host: '127.0.0.1',
     port: 6379
@@ -130,7 +130,7 @@ async function checkPing() {
       loss: '1'
     });
   }
-  await metricsQueue.add('generateMetrics', {});
+  await metricsQueue.add('generateMetrics', {}, {jobId: 'gen'});
 }
 
 async function checkNetworkTrafficStats() {
@@ -168,6 +168,7 @@ async function checkNetworkTrafficStats() {
   } catch (err) {
     console.error('Network stats error:', (err as Error).message);
   }
+  await metricsQueue.add('generateMetrics', {}, {jobId: 'gen'});
 }
 
 async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {

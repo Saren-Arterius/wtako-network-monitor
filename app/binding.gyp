@@ -22,14 +22,29 @@
         ['OS=="mac"', {
           'cflags+': ['-fno-rtti'],
           'cflags_cc+': ['-fno-rtti'],
-          'cflags_cc': ['-O3']
+          'cflags_cc': ['-O3'],
+          'link_settings': {
+            'libraries': ['-lhiredis', '-lredis++'],
+            'library_dirs': ['/usr/local/lib']
+          }
         }],
         ['OS=="win"', {
           'cflags+': ['-fno-rtti'],
           'cflags_cc+': ['-fno-rtti'],
-          'cflags_cc': ['/O2'] # MSVC equivalent of -O3
+          'cflags_cc': ['/O2'], # MSVC equivalent of -O3
+          'msvs_settings': {
+            'VCLinkerTool': {
+              'AdditionalDependencies': [ 'hiredis.lib', 'redis++.lib' ]
+            }
+          }
         }],
         ['OS=="linux"', {
+           "include_dirs": [
+             "/usr/local/include"
+           ],
+           "library_dirs": [
+             "/usr/local/lib"
+           ],
            "cflags_cc": [
              "-std=c++17",
              "-march=armv7-a",  # For Raspberry Pi 2 (ARMv7-A)
@@ -37,7 +52,8 @@
              "-mfpu=neon-vfpv4", # Enable NEON FPU
              "-mfloat-abi=hard", # Hardware floating point
              "-O3"               # Highest optimization
-           ]
+           ],
+           "link_settings": { "libraries": ["-lhiredis", "-lredis++"] }
         }]
       ],
       "defines": [ "NAPI_CPP_EXCEPTIONS" ]
